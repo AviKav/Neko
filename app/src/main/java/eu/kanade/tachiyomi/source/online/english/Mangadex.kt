@@ -408,6 +408,37 @@ open class Mangadex(override val lang: String, private val internalLang: String,
                 .map { isAuthenticationSuccessful(it) }
     }
 
+    data class ReadingProgress(val volume: String, val chapter: String)
+
+    fun fetchReadingProgress(mangaID: Long): Observable<ReadingProgress> {
+        val url = HttpUrl.parse("$baseUrl/title/$mangaID")!!.newBuilder().toString()
+        val request = GET(url, headersBuilder().build())
+
+        return clientBuilder().newCall(request)
+                .asObservable()
+                .map { response ->
+                    readingProgressParse(response)
+                }
+    }
+
+    private fun readingProgressParse(response: Response): ReadingProgress {
+        val document = response.asJsoup()
+        val volume = document.getElementById("current_volume").text()
+        val chapter = document.getElementById("current_chapter").text()
+
+        return ReadingProgress(volume, chapter)
+    }
+
+    fun changeReadingProgress(mangaID: Long, readingProgress: ReadingProgress): Observable<Boolean> {
+        val formBody = FormBody.Builder()
+                .add("volume", readingProgress.volume)
+                .add("chapter", readingProgress.chapter)
+
+        return clientBuilder().newCall(POST("$baseUrl/ajax/actions.ajax.php?function=edit_progress&id=$mangaID", headers, formBody.build()))
+                .asObservable()
+                .map { isAuthenticationSuccessful(it) }
+    }
+
     override fun fetchMangaDetails(manga: SManga): Observable<SManga> {
         return clientBuilder().newCall(apiRequest(manga))
                 .asObservableSuccess()
